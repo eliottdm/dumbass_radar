@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Détecteur de Con</title>
+    <style>
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            background-color: black; color: #00FF00;
+            font-family: 'Courier New', Courier, monospace;
+            overflow: hidden; touch-action: none;
+        }
+
+        #app {
+            display: flex; flex-direction: column; align-items: center;
+            height: 100%; width: 100%; position: relative;
+        }
+
+        .signature {
+            margin-top: 60px; font-size: 12px; opacity: 0.4; font-weight: bold;
+        }
+
+        #radar-canvas {
+            margin-top: 40px; width: 330px; height: 250px;
+        }
+
+        .title {
+            position: absolute; bottom: 20%; font-size: 28px;
+            font-weight: 900; text-align: center; width: 100%;
+        }
+
+        
+        #victory-screen {
+            display: none; position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%; background: black;
+            z-index: 100; flex-direction: column; align-items: center;
+            justify-content: center; text-align: center; padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .bravo { color: yellow; font-size: 40px; font-weight: 900; margin-bottom: 20px; }
+        .con-found { color: white; font-size: 22px; margin-bottom: 30px; }
+        .anecdote-box {
+            background: rgba(0, 255, 0, 0.1); border-radius: 15px;
+            padding: 20px; margin-bottom: 40px; max-width: 500px;
+        }
+        .le-savais-tu { font-size: 12px; letter-spacing: 2px; margin-bottom: 10px; }
+        .anecdote-text { color: rgba(255, 255, 255, 0.9); font-style: italic; font-size: 18px; }
+        
+        button {
+            background: #00FF00; color: black; border: none;
+            padding: 15px 30px; border-radius: 30px; font-weight: bold;
+            font-size: 16px; cursor: pointer;
+        }
+
+        
+        #start-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: black; z-index: 200; display: flex;
+            align-items: center; justify-content: center;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="start-screen">
+        <button onclick="startApp()">ACTIVER LE RADAR</button>
+    </div>
+
+    <div id="app">
+        <div class="signature">by Eliott</div>
+        <canvas id="radar-canvas"></canvas>
+        <div class="title">DÉTECTEUR DE CON</div>
+    </div>
+
+    <div id="victory-screen">
+        <div class="bravo">BRAVO !</div>
+        <div class="con-found">Vous avez trouvé un con d'un niveau extrêmement rare !</div>
+        <div class="anecdote-box">
+            <div class="le-savais-tu">LE SAVAIS-TU ?</div>
+            <div id="anecdote" class="anecdote-text"></div>
+        </div>
+        <button onclick="resetApp()">REPRENDRE LA CHASSE</button>
+    </div>
+
+    <audio id="beep-snd" src="beep.mp3"></audio>
+    <audio id="victory-snd" src="victory.mp3"></audio>
+
+    <script>
+        const canvas = document.getElementById('radar-canvas');
+        const ctx = canvas.getContext('2d');
+        const beepSnd = document.getElementById('beep-snd');
+        const victorySnd = document.getElementById('victory-snd');
+        const victoryScreen = document.getElementById('victory-screen');
+        const anecdoteElement = document.getElementById('anecdote');
+
+        canvas.width = 330;
+        canvas.height = 250;
+
+        let intensity = 1;
+        let activeArc = 0;
+        let detectionStartTime = null;
+        let isVictory = false;
+
+        const anecdotes = [
+            "Le CNRC estime qu'un tel niveau de connerie ne concerne que 3% de la population, ce qui en fait une espèce protégée.",
+            "À ce niveau de rayonnement, ce sujet est capable de brouiller le signal GPS dans un rayon de 10 mètres.",
+            "La NASA l'utilise pour tester la résistance au vide spatial : rien ne rentre, absolument rien ne sort.",
+            "Son arbre généalogique forme probablement un cercle parfait.",
+            "Il est tellement con que même à un concours de connerie, il finirait 2ème. Trop con pour gagner la première place.",
+            "S'il pouvait fermer sa gueule, on réduirait de 80% les problèmes d'acouphènes en France.",
+            "Il a été utilisé comme étalon de la connerie au Bureau International des Poids et Mesures."
+        ];
+
+        
+        window.addEventListener('touchstart', handleTouch);
+        window.addEventListener('touchmove', handleTouch);
+        window.addEventListener('touchend', () => {
+            intensity = 1;
+            detectionStartTime = null;
+        });
+
+        function handleTouch(e) {
+            if (isVictory) return;
+            const touch = e.touches[0];
+            const ratio = Math.max(0, Math.min(1, touch.clientX / window.innerWidth));
+            intensity = 1 + (ratio * ratio * 19);
+
+            if (intensity > 1.2 && !detectionStartTime) {
+                detectionStartTime = Date.now();
+            } else if (intensity <= 1.2) {
+                detectionStartTime = null;
+            }
+        }
+
+        
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height - 20;
+
+            for (let i = 1; i <= 3; i++) {
+                const radius = i * 50;
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius, Math.PI * 1.1, Math.PI * 1.9);
+                ctx.lineWidth = 12;
+                ctx.strokeStyle = (activeArc >= i) ? "#00FF00" : "rgba(0, 255, 0, 0.1)";
+                ctx.stroke();
+            }
+            requestAnimationFrame(draw);
+        }
+
+        
+        async function startSequence() {
+            while (true) {
+                if (isVictory) { await new Promise(r => setTimeout(r, 100)); continue; }
+
+                
+                if (detectionStartTime && (Date.now() - detectionStartTime >= 6000)) {
+                    triggerVictory();
+                }
+
+                
+                beepSnd.currentTime = 0;
+                beepSnd.play().catch(()=>{});
+
+                
+                activeArc = 1; await new Promise(r => setTimeout(r, 60));
+                activeArc = 2; await new Promise(r => setTimeout(r, 60));
+                activeArc = 3; await new Promise(r => setTimeout(r, 100));
+                activeArc = 0;
+
+                const totalCycle = (1 / intensity) * 1000;
+                const remaining = Math.max(50, totalCycle - 220);
+                await new Promise(r => setTimeout(r, remaining));
+            }
+        }
+
+        function triggerVictory() {
+            isVictory = true;
+            victoryScreen.style.display = 'flex';
+            anecdoteElement.innerText = anecdotes[Math.floor(Math.random() * anecdotes.length)];
+            victorySnd.play().catch(()=>{});
+        }
+
+        function resetApp() {
+            isVictory = false;
+            intensity = 1;
+            detectionStartTime = null;
+            victoryScreen.style.display = 'none';
+        }
+
+        function startApp() {
+            document.getElementById('start-screen').style.display = 'none';
+            draw();
+            startSequence();
+        }
+    </script>
+</body>
+</html>
